@@ -65,6 +65,7 @@ import JobTransformForm from './JobTransformForm'
 import StreamConfigForm from './StreamConfigForm'
 // import StreamDagModal from './StreamDagModal'
 // import FlowDagModal from './FlowDagModal'
+import StreamMonitorForm from './StreamMonitorForm'
 
 import {
   loadUserAllFlows, loadAdminSingleFlow, loadSelectStreamKafkaTopic, loadSourceSinkTypeNamespace,
@@ -143,8 +144,10 @@ export class Workbench extends React.Component {
 
       etpStrategyCheck: false,
       streamConfigModalVisible: false,
+      streamMonitorModalVisible: false,
       sparkConfigModalVisible: false,
       streamConfigCheck: false,
+      streamMonitorCheck: false,
       sparkConfigCheck: false,
 
       kafkaValues: [],
@@ -153,6 +156,7 @@ export class Workbench extends React.Component {
       flowKafkaTopicValue: '',
 
       streamConfigValues: {},
+      streamMonitorValues: {},
       streamQueryValues: {},
       streamSubPanelKey: 'spark',
 
@@ -1324,16 +1328,19 @@ export class Workbench extends React.Component {
     // 显示 jvm 数据，从而获得初始的 sparkConfig
     this.setState({
       streamMode: 'add',
-      streamConfigCheck: false
+      streamConfigCheck: false,
+      streamMonitorCheck: false
     })
     const streamType = this.state.streamSubPanelKey
     this.workbenchStreamForm.setFieldsValue({streamType})
     Promise.all(this.loadConfig(streamType)).then((values) => {
       let startConfigJson = {}
       let launchConfigJson = {}
+      let monitorConfigJson = {}
 
       if (streamType === 'spark') {
         const { driverCores, driverMemory, executorNums, perExecutorMemory, perExecutorCores, durations, partitions, maxRecords } = values[0].spark
+        const { monitorToEmail, monitorToRestart, monitorToDingding } = values[0].monitorConfig
 
         startConfigJson = {
           driverCores,
@@ -1347,8 +1354,14 @@ export class Workbench extends React.Component {
           partitions,
           maxRecords
         }
+        monitorConfigJson = {
+          monitorToEmail,
+          monitorToRestart,
+          monitorToDingding
+        }
       } else if (streamType === 'flink') {
         const { jobManagerMemoryGB, taskManagersNumber, perTaskManagerSlots, perTaskManagerMemoryGB } = values[0].flink
+        const { monitorToEmail, monitorToRestart, monitorToDingding } = values[0].monitorConfig
 
         startConfigJson = {
           jobManagerMemoryGB,
@@ -1357,6 +1370,11 @@ export class Workbench extends React.Component {
           perTaskManagerMemoryGB
         }
         launchConfigJson = ''
+        monitorConfigJson = {
+          monitorToEmail,
+          monitorToRestart,
+          monitorToDingding
+        }
       }
 
       this.setState({
@@ -1366,7 +1384,11 @@ export class Workbench extends React.Component {
           othersConfig: values[0].othersConfig,
           // streamConfig: `${values[0].jvm},${values[0].others}`,
           startConfig: `${JSON.stringify(startConfigJson)}`,
-          launchConfig: launchConfigJson !== '' ? `${JSON.stringify(launchConfigJson)}` : ''
+          launchConfig: launchConfigJson !== '' ? `${JSON.stringify(launchConfigJson)}` : '',
+          monitorConfig: `${JSON.stringify(monitorConfigJson)}`
+        },
+        streamMonitorValues: {
+          monitorConfig: `${JSON.stringify(monitorConfigJson)}`
         }
       })
     })
@@ -1379,7 +1401,8 @@ export class Workbench extends React.Component {
     const { projectId } = this.state
     this.setState({
       streamMode: 'edit',
-      streamConfigCheck: true
+      streamConfigCheck: true,
+      streamMonitorCheck: true
     })
     this.workbenchStreamForm.resetFields()
 
@@ -1394,7 +1417,7 @@ export class Workbench extends React.Component {
         currentUdf: currentUdf,
         usingUdf: usingUdf
       })
-      const { name, streamType, functionType, desc, instance, JVMDriverConfig, JVMExecutorConfig, othersConfig, startConfig, launchConfig, id, projectId, specialConfig } = resultVal
+      const { name, streamType, functionType, desc, instance, JVMDriverConfig, JVMExecutorConfig, othersConfig, startConfig, launchConfig, monitorConfig, id, projectId, specialConfig } = resultVal
       this.workbenchStreamForm.setFieldsValue({
         streamType,
         streamName: name,
@@ -1411,6 +1434,10 @@ export class Workbench extends React.Component {
           othersConfig,
           startConfig,
           launchConfig
+        },
+
+        streamMonitorValues: {
+          monitorConfig
         },
 
         streamQueryValues: {
@@ -1481,6 +1508,29 @@ export class Workbench extends React.Component {
     })
   }
 
+  // Stream Monitor Modal
+  onShowMonitorModal = () => {
+    let { streamMonitorValues, streamSubPanelKey: streamType, streamMonitorCheck } = this.state
+    streamType = this.workbenchStreamForm.getFieldValue('streamType')
+    this.setState({
+      streamSubPanelKey: streamType,
+      streamMonitorModalVisible: true
+    }, () => {
+      if (!streamMonitorCheck) this.streamMonitorForm.resetFields()
+
+      const monitorConfigTemp = JSON.parse(streamMonitorValues.monitorConfig)
+
+      if (streamType === 'spark' || streamType === 'flink') {
+        const { monitorToEmail, monitorToRestart, monitorToDingding } = monitorConfigTemp
+        this.streamMonitorForm.setFieldsValue({
+          monitorToEmail,
+          monitorToRestart,
+          monitorToDingding
+        })
+      }
+    })
+  }
+
   // Spark Config Modal
   onShowSparkConfigModal = () => {
     const { jobSparkConfigValues } = this.state
@@ -1518,6 +1568,7 @@ export class Workbench extends React.Component {
   }
 
   hideConfigModal = () => this.setState({ streamConfigModalVisible: false })
+  hideMonitorModal = () => this.setState({ streamMonitorModalVisible: false })
   hideSparkConfigModal = () => this.setState({ sparkConfigModalVisible: false })
 
   onConfigModalOk = () => {
@@ -1597,6 +1648,30 @@ export class Workbench extends React.Component {
           }
         })
         this.hideConfigModal()
+      }
+    })
+  }
+
+  onMonitorModalOk = () => {
+    const { streamSubPanelKey } = this.state
+    this.streamMonitorForm.validateFieldsAndScroll((err, values) => {
+      if (!err) {
+        let monitorConfigJson = {}
+        if (streamSubPanelKey === 'spark' || streamSubPanelKey === 'flink') {
+          const { monitorToEmail, monitorToRestart, monitorToDingding } = values
+          monitorConfigJson = {
+            monitorToEmail: monitorToEmail,
+            monitorToRestart: monitorToRestart,
+            monitorToDingding: monitorToDingding
+          }
+        }
+        this.setState({
+          streamMonitorCheck: true,
+          streamMonitorValues: {
+            monitorConfig: JSON.stringify(monitorConfigJson)
+          }
+        })
+        this.hideMonitorModal()
       }
     })
   }
@@ -2329,7 +2404,7 @@ export class Workbench extends React.Component {
   hideFlowSubmit = () => this.setState({ flowMode: '' })
 
   submitStreamForm = () => {
-    const { projectId, streamMode, streamConfigValues, streamConfigCheck, streamQueryValues } = this.state
+    const { projectId, streamMode, streamConfigValues, streamConfigCheck, streamMonitorValues, streamMonitorCheck, streamQueryValues } = this.state
 
     this.workbenchStreamForm.validateFieldsAndScroll((err, values) => {
       if (!err) {
@@ -2349,7 +2424,7 @@ export class Workbench extends React.Component {
               specialConfig
             }
 
-            this.props.onAddStream(projectId, Object.assign(requestValues, streamConfigValues), () => {
+            this.props.onAddStream(projectId, Object.assign(requestValues, streamConfigValues, streamMonitorValues), () => {
               message.success(operateLanguageSuccessMessage('Stream', 'create'), 3)
               this.setState({
                 streamMode: ''
@@ -2358,12 +2433,15 @@ export class Workbench extends React.Component {
               if (streamConfigCheck) {
                 this.streamConfigForm.resetFields()
               }
+              if (streamMonitorCheck) {
+                this.streamMonitorForm.resetFields()
+              }
               this.hideStreamSubmit()
             })
             break
           case 'edit':
             const editValues = { desc: values.desc, specialConfig }
-            const requestEditValues = Object.assign(editValues, streamQueryValues, streamConfigValues)
+            const requestEditValues = Object.assign(editValues, streamQueryValues, streamConfigValues, streamMonitorValues)
 
             this.props.onEditStream(requestEditValues, () => {
               message.success(operateLanguageSuccessMessage('Stream', 'modify'), 3)
@@ -2379,7 +2457,8 @@ export class Workbench extends React.Component {
   hideStreamSubmit = () => {
     this.setState({
       isWormhole: true,
-      streamConfigCheck: false
+      streamConfigCheck: false,
+      streamMonitorCheck: false
     })
   }
 
@@ -3610,7 +3689,7 @@ export class Workbench extends React.Component {
       flowMode, projectId, streamMode, jobMode, formStep, isWormhole, flowClassHide,
       flowFormTranTableSource, jobFormTranTableSource, namespaceClassHide, userClassHide,
       udfClassHide, flowSpecialConfigModalVisible, transformModalVisible, sinkConfigModalVisible,
-      etpStrategyModalVisible, streamConfigModalVisible, sparkConfigModalVisible,
+      etpStrategyModalVisible, streamConfigModalVisible, streamMonitorModalVisible, sparkConfigModalVisible,
       jobSinkConfigModalVisible, jobTransModalVisible, jobSpecialConfigModalVisible, pipelineStreamId, cepPropData, transformMode, hasPattern,
       outputType, outputFieldList
     } = this.state
@@ -3848,7 +3927,9 @@ export class Workbench extends React.Component {
                       streamSubPanelKey={this.state.streamSubPanelKey}
 
                       onShowConfigModal={this.onShowConfigModal}
+                      onShowMonitorModal={this.onShowMonitorModal}
                       streamConfigCheck={this.state.streamConfigCheck}
+                      streamMonitorCheck={this.state.streamMonitorCheck}
                       topicEditValues={this.state.topicEditValues}
                       changeStreamType={this.changeStreamType}
 
@@ -3866,6 +3947,22 @@ export class Workbench extends React.Component {
                         tabPanelKey={this.state.tabPanelKey}
                         streamSubPanelKey={this.state.streamSubPanelKey}
                         ref={(f) => { this.streamConfigForm = f }}
+                      />
+                    </Modal>
+                    {/* Monitor Modal */}
+                    <Modal
+                      title="Monitors"
+                      okText="保存"
+                      wrapClassName="ant-modal-large"
+                      /* width="100px" */
+                      style={{height: 300, width: 300}}
+                      visible={streamMonitorModalVisible}
+                      onOk={this.onMonitorModalOk}
+                      onCancel={this.hideMonitorModal}>
+                      <StreamMonitorForm
+                        tabPanelKey={this.state.tabPanelKey}
+                        streamSubPanelKey={this.state.streamSubPanelKey}
+                        ref={(f) => { this.streamMonitorForm = f }}
                       />
                     </Modal>
                     <div className="ri-workbench-step-button-area">

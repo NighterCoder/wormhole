@@ -525,3 +525,9 @@ CREATE TABLE IF NOT EXISTS `recharge_result_log` (
   `rst` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- stream监控
+-- ----------------------------
+ALTER TABLE `wormhole`.`stream`
+ADD COLUMN `monitor_config` VARCHAR(1000) NULL;
