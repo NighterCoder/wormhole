@@ -9,24 +9,22 @@
             {
               "match": {
                 "projectId": {
-                  "query": "#PROJECT_ID#",
-                  "type": "phrase"
+                  "query": "#PROJECT_ID#"
                 }
               }
             },
             {
               "match": {
                 "flowId": {
-                  "query": "#FLOW_ID#",
-                  "type": "phrase"
+                  "query": "#FLOW_ID#"
                 }
               }
             },
             {
               "range":{
                 "feedbackTime":{
-                  "ge": "#START_TIME#",
-                  "le": "#END_TIME#"
+                  "gte": "#START_TIME#",
+                  "lte": "#END_TIME#"
                 }
               }
             }

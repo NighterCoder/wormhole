@@ -57,6 +57,9 @@ object DbConnection extends Serializable {
       println("mysql")
       config.setConnectionTestQuery("SELECT 1")
       config.setDriverClassName("com.mysql.jdbc.Driver")
+    } else if (tmpJdbcUrl.indexOf("clickhouse")> -1){
+      println("clickhouse")
+      config.setDriverClassName("ru.yandex.clickhouse.ClickHouseDriver")
     } else if (tmpJdbcUrl.indexOf("oracle") > -1) {
       println("oracle")
       config.setConnectionTestQuery("SELECT 1 from dual")
@@ -67,9 +70,6 @@ object DbConnection extends Serializable {
     } else if (tmpJdbcUrl.indexOf("sqlserver") > -1) {
       println("sqlserver")
       config.setDriverClassName("com.microsoft.sqlserver.jdbc.SQLServerDriver")
-    } else if (tmpJdbcUrl.indexOf("h2") > -1) {
-      println("h2")
-      config.setDriverClassName("org.h2.Driver")
     } else if (tmpJdbcUrl.indexOf("phoenix") > -1) {
       println("hbase phoenix")
       config.setDriverClassName("org.apache.phoenix.jdbc.PhoenixDriver")
@@ -85,12 +85,12 @@ object DbConnection extends Serializable {
     } else if (tmpJdbcUrl.indexOf("vertica") > -1) {
       println("vertical")
       config.setDriverClassName("com.vertica.jdbc.Driver")
-//    } else if (tmpJdbcUrl.indexOf("greenplum") > -1) {
-//      println("greenplum")
-//      config.setDriverClassName("com.pivotal.jdbc.GreenplumDriver")
-    } else if (tmpJdbcUrl.indexOf("clickhouse")> -1){
-      println("clickhouse")
-      config.setDriverClassName("ru.yandex.clickhouse.ClickHouseDriver")
+      //    } else if (tmpJdbcUrl.indexOf("greenplum") > -1) {
+      //      println("greenplum")
+      //      config.setDriverClassName("com.pivotal.jdbc.GreenplumDriver")
+    } else if (tmpJdbcUrl.indexOf("h2") > -1) {
+      println("h2")
+      config.setDriverClassName("org.h2.Driver")
     }
 
 

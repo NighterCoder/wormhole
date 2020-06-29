@@ -321,7 +321,6 @@ object BatchflowMainProcess extends EdpLogging {
             val flowConfig: FlowConfig = flowConfigMap(sinkNamespace)
 
             if (swiftsProcessConfig.nonEmpty && swiftsProcessConfig.get.swiftsSql.nonEmpty) {
-
               val (returnUmsFields, tuplesRDD, unionDf) = swiftsProcess(protocolType, flowConfig, swiftsProcessConfig, uuid, session, sourceTupleRDD, config, sourceNamespace, sinkNamespace, minTs, maxTs, count, sinkFields, batchId, topicPartitionOffset)
               sinkFields = returnUmsFields
               sinkRDD = tuplesRDD
@@ -426,11 +425,13 @@ object BatchflowMainProcess extends EdpLogging {
     val matchSourceNamespace = ConfMemoryStorage.getMatchSourceNamespaceRule(sourceNamespace)
     val sourceDf = createSourceDf(session, sourceNamespace, umsFields, sourceTupleRDD)
     val dataSetShow = swiftsProcessConfig.get.datasetShow
+    if (dataSetShow.get) {
+      sourceDf.show(swiftsProcessConfig.get.datasetShowNum.get)
+    }
+
     val afterUnionDf = unionParquetNonTimeoutDf(swiftsProcessConfig, uuid, session, sourceDf, config, sourceNamespace, sinkNamespace).cache
+
     try {
-      if (dataSetShow.get) {
-        sourceDf.show(swiftsProcessConfig.get.datasetShowNum.get)
-      }
       val swiftsDf: DataFrame = SwiftsTransform.transform(session, sourceNamespace, sinkNamespace, afterUnionDf, matchSourceNamespace, config)
       val resultSchema = swiftsDf.schema
       val nameIndex: Array[(String, Int, DataType)] = resultSchema.fieldNames.map(name => {
@@ -531,8 +532,8 @@ object BatchflowMainProcess extends EdpLogging {
 
     val mutationType =
       if (specialConfigJson.containsKey("mutation_type")) specialConfigJson.getString("mutation_type").trim
-      else if (sinkProcessConfig.classFullname.contains("Kafka") || sinkProcessConfig.classFullname.contains("Clickhouse") || sinkProcessConfig.classFullname.contains("RocketMQ") || sinkProcessConfig.classFullname.contains("Http")) SourceMutationType.INSERT_ONLY.toString
-      else SourceMutationType.I_U_D.toString
+      else if (sinkProcessConfig.classFullname.contains("Kafka") || sinkProcessConfig.classFullname.contains("Clickhouse")) SourceMutationType.INSERT_ONLY.toString
+      else SourceMutationType.INSERT_ONLY.toString
 
     val repartitionRDD = if (SourceMutationType.INSERT_ONLY.toString != mutationType) {
       val ids = if (sinkNamespace.startsWith(UmsDataSystem.ES.toString)) JsonUtils.json2caseClass[EsConfig](sinkProcessConfig.specialConfig.get).`_id.get`.toList
@@ -553,13 +554,15 @@ object BatchflowMainProcess extends EdpLogging {
 
         val (sendList: ListBuffer[Seq[String]], saveList: ListBuffer[String]) = doValidityAndGetData(swiftsProcessConfig, partition, resultSchemaMap, originalSchemaMap, renameMap, minTs, sourceNamespace, sinkNamespace) //,jsonUmsSysFields)
         logInfo(uuid + ",@sendList size: " + sendList.size + " saveList size: " + saveList.size)
-        val mergeSendList: Seq[Seq[String]] = if (SourceMutationType.INSERT_ONLY.toString == mutationType) {
+
+        /*val mergeSendList: Seq[Seq[String]] = if (SourceMutationType.INSERT_ONLY.toString == mutationType) {
           logInfo(uuid + "special config is i, merge not happen")
           sendList
         } else {
           logInfo(uuid + "special config not i, merge happen")
           SparkUtils.mergeTuple(sendList, resultSchemaMap, sinkProcessConfig.tableKeyList)
-        }
+        }*/
+        val mergeSendList: Seq[Seq[String]] = sendList
         logInfo(uuid + ",@mergeSendList size: " + mergeSendList.size)
 
         //todo add rename mapping to sink, and revise sink part

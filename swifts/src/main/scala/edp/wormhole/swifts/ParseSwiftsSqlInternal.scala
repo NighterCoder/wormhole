@@ -133,15 +133,16 @@ object ParseSwiftsSqlInternal {
         .map(field => {
           (field.trim.split(" ").last, true)
         }).toMap
+      // 更新模式, 去掉添加的ums_id_、ums_ts_、ums_op_
       if (!selectFields.contains("*")) {
         if ((dataType == "ums" || (dataType != "ums" && mutation != "i")) && !selectFields.contains(UmsSysField.TS.toString)) {
-          sql = sql + UmsSysField.TS.toString + ", "
+          //sql = sql + UmsSysField.TS.toString + ", "
         }
         if ((dataType == "ums" || (dataType != "ums" && mutation != "i")) && !selectFields.contains(UmsSysField.ID.toString)) {
-          sql = sql + UmsSysField.ID.toString + ", "
+          //sql = sql + UmsSysField.ID.toString + ", "
         }
         if ((dataType == "ums" || (dataType != "ums" && mutation != "i")) && !selectFields.contains(UmsSysField.OP.toString)) {
-          sql = sql + UmsSysField.OP.toString + ", "
+          //sql = sql + UmsSysField.OP.toString + ", "
         }
         if ((dataType == "ums" || (dataType != "ums" && mutation != "i")) && validity && !selectFields.contains(UmsSysField.UID.toString)) {
           sql = sql + UmsSysField.UID.toString + ", "
@@ -386,14 +387,7 @@ object ParseSwiftsSqlInternal {
     val selectLength = 6
     val selectFieldsArray = getFieldsArray(sql.substring(selectLength, fromIndex))
     val schemaInString = selectFieldsArray.map(fieldWithAs => {
-      if(tableSchema.contains(fieldWithAs._1)) {
-        fieldWithAs._1 + ":" + tableSchema(fieldWithAs._1) + " as " + fieldWithAs._2
-      } else if(!tableSchema.contains(fieldWithAs._1) && ((fieldWithAs._1.startsWith("'") && fieldWithAs._1.endsWith("'")) || (fieldWithAs._1.startsWith("\"") && fieldWithAs._1.endsWith("\"")))) {
-        fieldWithAs._1 + ":" + "default" + " as " + fieldWithAs._2
-      } else {
-        logger.error(s"""kudu table $database.$tmpTableName not contain field ${fieldWithAs._1}, all fields is $tableSchema""")
-        throw new Exception(s"""kudu table $database.$tmpTableName not contain field ${fieldWithAs._1}""")
-      }
+      fieldWithAs._1 + ":" + tableSchema(fieldWithAs._1) + " as " + fieldWithAs._2
     }).mkString(",")
     logger.info("get kudu table schema success")
     KuduConnection.closeClient(client)

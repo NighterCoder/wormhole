@@ -160,7 +160,8 @@ class WormholeFlinkMainProcess(config: WormholeFlinkxConfig, umsFlowStart: Ums) 
     myConsumer.setStartFromSpecificOffsets(specificStartOffsets)
     val consumeProtocolMap = UmsFlowStartUtils.extractConsumeProtocol(flowStartFields, flowStartPayload)
     val initialStream: DataStream[(String, String, String, Int, Long)] = env.addSource(myConsumer)
-      .map(event => (UmsCommonUtils.checkAndGetKey(event._1, event._2), event._2, event._3, event._4, event._5))
+      //.map(event => (UmsCommonUtils.checkAndGetKey(event._1, event._2), event._2, event._3, event._4, event._5))
+      .map(event => (if(event._1==null || event._1.trim.isEmpty) UmsProtocolType.DATA_INCREMENT_DATA.toString + "." + sourceNamespace else event._1, event._2, event._3, event._4, event._5))
 
     val processStream: DataStream[(String, String, String, Int, Long)] =
       initialStream.filter(event => {
